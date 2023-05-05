@@ -1,0 +1,102 @@
+import sqlite3 as sq
+from info import form
+from info import hospital_sheet
+with sq.connect('zarplata.db') as con: 
+    cur = con.cursor() 
+    cur.execute("""CREATE TABLE IF NOT EXISTS form (
+         id_sotr INTEGER PRIMARY KEY, 
+         name VARCHAR NOT NULL, 
+         surname VARCHAR NOT NULL,
+         dirthay_data DATE,
+         sex VARCHAR NOT NULL, 
+         date_of_hiring DATE,
+         post VARCHAR NOT NULL,
+         department VARCHAR NOT NULL,
+         base_rate DECIMAL)""")
+    if cur.execute("""SELECT * FROM form""").fetchall() == []:
+        print('bulbazaur')
+        cur.executemany("INSERT INTO form VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", form)
+    else:
+        pass
+    
+with sq.connect('zarplata.db') as con: 
+    cur = con.cursor() 
+    cur.execute("""CREATE TABLE IF NOT EXISTS hospital_sheet (
+         id_sheet INTEGER PRIMARY KEY,
+         id_sotr INTEGER, 
+         beginning_data DATE,
+         ending_data DATE,
+         reason VARCHAR NOT NULL, 
+         diagnosis VARCHAR NOT NULL,
+         payment BOOLEAN,
+         FOREIGN KEY (id_sotr) REFERENCES form(id_sotr) ON DELETE CASCADE ON UPDATE CASCADE)""")
+    if cur.execute("""SELECT * FROM hospital_sheet""").fetchall() == []:
+        cur.executemany("INSERT INTO hospital_sheet VALUES (?, ?, ?, ?, ?, ?, ?)", hospital_sheet)
+    else:
+        print(1,2,3)
+        pass
+
+with sq.connect('zarplata.db') as con:
+    cur = con.cursor()
+    cur.execute("""PRAGMA foreign_keys = ON""")
+    #1. Вывести список всех сотрудников и их должностей
+    print(cur.execute("""SELECT name, surname, post FROM form""").fetchall())
+    #2. Вывести список всех сотрудников и их базовых ставок
+    print(cur.execute("""SELECT name, surname, base_rate FROM form""").fetchall())
+    #3. Вывести список всех сотрудников, работающих в отделе "IT"
+    print(cur.execute("""SELECT name, surname FROM form WHERE department='IT'""").fetchall())
+    #4. Вывести список всех сотрудников, принятых на работу после 1 января 2022 года
+    print(cur.execute("""SELECT name, surname FROM form WHERE date_of_hiring>'2022-01-01'""").fetchall())
+    #5. Вывести список всех больничных листов, выписанных сотруднику с id = 42
+    print(cur.execute("""SELECT * FROM hospital_sheet WHERE id_sotr=42""").fetchall())
+    #6. Вывести список всех больничных листов, оплаченных компанией
+    print(cur.execute("""SELECT * FROM hospital_sheet WHERE payment=True""").fetchall())
+    #7. Вывести список всех сотрудников, имеющих больничные листы на текущий месяц
+    #print(cur.execute("""SELECT name, surname FROM hospital_sheet WHERE beginning_data>'2023-04-01'""").fetchall())
+    #12. Вывести среднюю продолжительность больничных листов сотрудников в каждом отделе
+    print(cur.execute("""SELECT AVG(JULIANDAY(ending_data) - JULIANDAY(beginning_data)), department FROM hospital_sheet JOIN form ON hospital_sheet.id_sotr=form.id_sotr WHERE department='Отдел менеджмента'""").fetchall())
+    print(cur.execute("""SELECT AVG(JULIANDAY(ending_data) - JULIANDAY(beginning_data)), department FROM hospital_sheet JOIN form ON hospital_sheet.id_sotr=form.id_sotr WHERE department='IT'""").fetchall())
+    print(cur.execute("""SELECT AVG(JULIANDAY(ending_data) - JULIANDAY(beginning_data)), department FROM hospital_sheet JOIN form ON hospital_sheet.id_sotr=form.id_sotr WHERE department='Бухгалтерия'""").fetchall())
+    print(cur.execute("""SELECT AVG(JULIANDAY(ending_data) - JULIANDAY(beginning_data)), department FROM hospital_sheet JOIN form ON hospital_sheet.id_sotr=form.id_sotr WHERE department='Отдел продаж'""").fetchall())
+    #13. Вывести список сотрудников и информацию о последнем больничном листе, который они оформляли
+    #print(cur.execute("""SELECT name, surname, beginning_data, ending_data, reason, diagnosis, payment FROM form JOIN hospital_sheet ON form.id_sotr=hospital_sheet.id_sotr""").fetchall())
+    #14. Вывести список сотрудников и информацию о первом больничном листе, который они оформляли
+    #?
+    #15. Вывести список сотрудников и суммарную продолжительность их больничных листов в текущем году
+    print(cur.execute("""SELECT JULIANDAY(ending_data) - JULIANDAY(beginning_data), name, surname FROM hospital_sheet JOIN form ON hospital_sheet.id_sotr=form.id_sotr""").fetchall())
+
+with sq.connect('zarplata.db') as con:
+    cur = con.cursor()
+    #1. Обновить базовую ставку сотрудника на определенной должности.
+    print(cur.execute("""UPDATE form SET base_rate = base_rate+10000 WHERE post='Бухгалтер'""").fetchall())
+    #2. Обновить отдел для всех сотрудников в определенном диапазоне возраста.
+    print(cur.execute("""UPDATE form SET department = 'Управляющий отдел' WHERE dirthay_data BETWEEN '1987-08-13' AND '2001-02-18'""").fetchall())
+    #3. Обновить дату найма для сотрудника, получившего повышение.
+    print(cur.execute("""UPDATE form SET date_of_hiring = '2023-04-19' WHERE department='Управляющий отдел'""").fetchall())
+    #4. Обновить причину больничного листа для сотрудника.
+    print(cur.execute("""UPDATE hospital_sheet SET reason = 'Травма' WHERE diagnosis IN('Перелом колена', 'Растяжение связок', 'Перелом руки')""").fetchall())
+    #5. Обновить базовую ставку сотрудника в таблице "Анкета" на определенный процент, используя INNER JOIN с таблицей "Больничные листы". При этом необходимо исключить из обновления сотрудников, у которых были неоплаченные больничные листы.
+    #6. Обновить дату начала больничного листа в таблице "Больничные листы" на определенную дату, используя INNER JOIN с таблицей "Анкета". При этом необходимо исключить из обновления больничные листы с уже пройденной датой начала
+    #7. Обновить причину больничного листа в таблице "Больничные листы" на определенное значение для всех сотрудников, работающих в отделе "Бухгалтерия".
+    #print(cur.execute("""UPDATE hospital_sheet SET reason='Несчастный случай' FROM hospital_sheet JOIN form ON hospital_sheet.id_sotr = form.id_sotr WHERE department='Бухгалтерия'""").fetchall())
+
+with sq.connect('zarplata.db') as con:
+    cur = con.cursor()
+    #1. Удалить все записи о больничных листах для сотрудника с именем "Иван"
+    #print(cur.execute("""DELETE FROM hospital_sheet WHERE id_sotr IN (SELECT id_sotr FROM form WHERE name='Иван')""").fetchall())
+    #2. Удалить все записи о больничных листах для сотрудника с фамилией "Петров"
+    #print(cur.execute("""DELETE FROM hospital_sheet WHERE id_sotr IN (SELECT id_sotr FROM form WHERE surname='Петров')""").fetchall())
+    #3. Удалить все записи о больничных листах для сотрудника с должностью "Менеджер"
+    #print(cur.execute("""DELETE FROM hospital_sheet WHERE id_sotr IN (SELECT id_sotr FROM form WHERE post='Менеджер')""").fetchall())
+    #4. Удалить все записи о больничных листах для сотрудника с отделом "Отдел продаж"
+    #print(cur.execute("""DELETE FROM hospital_sheet WHERE id_sotr IN (SELECT id_sotr FROM form WHERE department='Отдел продаж')""").fetchall())
+    #5. Удалить все записи о больничных листах для сотрудника женского пола
+    #print(cur.execute("""DELETE FROM hospital_sheet WHERE id_sotr IN (SELECT id_sotr FROM form WHERE sex='женский')""").fetchall())
+    #6. Удалить все записи о больничных листах для сотрудников старше 50 лет
+    #print(cur.execute("""DELETE FROM hospital_sheet WHERE id_sotr IN (SELECT id_sotr FROM form WHERE dirthay_data<'1973-04-20')""").fetchall())
+    #7. Удалить все записи о неоплаченных больничных листах
+    #print(cur.execute("""DELETE FROM hospital_sheet WHERE payment=0""").fetchall())
+    #8. Удалить все записи о больничных листах, дата окончания которых прошла
+    #print(cur.execute("""DELETE FROM hospital_sheet WHERE ending_data<'2023-04-20'""").fetchall())
+    #9. Удалить все записи о больничных листах, начиная с определенной даты
+    print(cur.execute("""DELETE FROM hospital_sheet WHERE beginning_data>'2023-01-01'""").fetchall())
